@@ -1,12 +1,13 @@
 # CosplayTele for Venera-Next
 
-把 [Keiyoushi 的 CosplayTele 扩展](https://keiyoushi.github.io/extensions/#7395748658970167454) 移植到 Venera-Next。支持最新、近七日热门、关键词搜索、分类筛选和单册图库阅读。源站含成人内容；仓库只分发代码，不存放图片，也不需要额外部署服务器。
+把 [Keiyoushi 的 CosplayTele 扩展](https://keiyoushi.github.io/extensions/#7395748658970167454) 移植到 Venera-Next。支持最新、热门排行、关键词搜索、分类筛选、详情推荐和单册图库阅读。源站含成人内容；仓库只分发代码，不存放图片，也不需要额外部署服务器。
 
 ## 从本地文件安装
 
 1. 使用 [Venera-Next v1.18.5](https://github.com/CyrilPeng/Venera-Next/releases/tag/v1.18.5) 或更新版。首版声明最低版本为 `1.18.5`，原版 Venera 与更早版本未验证。
 2. 打开 **漫画源 → 添加来源 → 选择文件**，选择 [cosplaytele.js](cosplaytele.js)。预览应显示 `CosplayTele`，点击 **安装漫画源**。
-3. 在「发现」分别打开最新与热门，再用搜索入口选择 `CosplayTele`。点开一项后直接点击「阅读」；每篇文章是一册图库，没有章节列表。
+3. 在「发现」打开最新与近七日热门，或用搜索入口选择 `CosplayTele`。打开图集即可阅读；详情下方会显示源站提供的 **Recommend For You**（相关推荐）。
+4. 在分类页打开 **Best Cosplayer**，用筛选器选择作者；在 **Top Cosplay** 下查看 24 小时、3 天或 7 天榜。**Video Cosplay** 列出归入视频分类的帖子；源仍只读取图集图片，视频可用详情中的原网页链接查看。
 
 本地试用直接安装 JS，不用先导入 [index.json](index.json)。本地索引里的 `fileName` 是相对路径，上传后才有可下载的基准地址。详见 [Venera-Next 仓库指南](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/user/source_repositories.zh.md)。
 
@@ -19,7 +20,7 @@ npm ci
 npm test
 ```
 
-测试使用合成页面和 JSON，覆盖索引、分页、搜索筛选、分类、详情、图片顺序、请求头和错误。开发环境直连站点超时，未完成真实站点或客户端验收。若你这边能访问源站，首次发布前可在客户端试一条完整链路：**安装 → 打开最新 → 翻页 → 关键词搜索 → 打开详情 → 阅读多张图片**，再检查热门和分类入口。若浏览器能打开而客户端请求失败，请在「设置 → 调试 → 打开日志」核对具体 HTTP 状态或网络错误。
+离线测试使用合成页面和 JSON，覆盖索引、分页、搜索筛选、作者目录、排行、详情推荐、图片顺序、请求头和错误。另用源站的 HTML 和 JSON 验证了最新翻页、搜索、详情推荐、图片列表和新增分类入口；尚未在 Venera-Next 客户端完成界面验收。若客户端请求失败，可在「设置 → 调试 → 打开日志」核对具体 HTTP 状态或网络错误。
 
 ## 来源与许可
 

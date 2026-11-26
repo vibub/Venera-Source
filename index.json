@@ -2,8 +2,8 @@
   {
     "name": "CosplayTele",
     "key": "cosplaytele",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "fileName": "cosplaytele.js",
-    "description": "Cosplay 图库（含成人内容）。支持最新、热门、关键词搜索与分类。"
+    "description": "Cosplay 图库（含成人内容）。支持最新、分时排行、关键词搜索、分类和详情推荐。"
   }
 ]
