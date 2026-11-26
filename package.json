@@ -1,0 +1,14 @@
+{
+  "name": "venera-cosplaytele",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node test/cosplaytele.test.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "cheerio": "1.2.0"
+  }
+}
