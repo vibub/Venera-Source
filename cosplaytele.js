@@ -4,7 +4,7 @@
 class CosplayTeleSource extends ComicSource {
     name = "CosplayTele";
     key = "cosplaytele";
-    version = "1.4.0";
+    version = "1.4.1";
     minAppVersion = "1.18.5";
     url = "";
 
@@ -23,7 +23,9 @@ class CosplayTeleSource extends ComicSource {
     ];
     taxonomySlug = /^(?:[a-z0-9_-]|%[89a-f][0-9a-f])+$/i;
     creatorDirectoryEntries = null;
-    creatorPreviews = new Map();
+    creatorPreviews = null;
+    creatorFrontPages = new Map();
+    creatorPreviewTtl = 6 * 60 * 60 * 1000;
     tagPaths = new Map();
 
     async get(url, accept, headers) {
@@ -104,8 +106,14 @@ class CosplayTeleSource extends ComicSource {
             const main = document.querySelector("main");
             if (!main) throw new Error("CosplayTele: gallery list not found");
             const comics = this.parseCards(main.querySelectorAll("div.box"), "h5 a", null, pageUrl);
-            const hasNext = document.querySelector(".next.page-number") !== null;
-            return { comics, maxPage: hasNext ? page + 1 : page };
+            let maxPage = main.querySelector(".next.page-number") ? page + 1 : page;
+            for (const element of main.querySelectorAll(".nav-pagination .page-number")) {
+                const text = element.text.trim();
+                if (/^[1-9]\d*$/.test(text) && Number.isSafeInteger(Number(text))) {
+                    maxPage = Math.max(maxPage, Number(text));
+                }
+            }
+            return { comics, maxPage };
         });
     }
 
@@ -163,12 +171,22 @@ class CosplayTeleSource extends ComicSource {
 
     async loadCreatorPreview(slug) {
         const cached = this.creatorPreviews.get(slug);
-        if (cached && Date.now() - cached.time < 6 * 60 * 60 * 1000) return cached.comics;
+        const comic = cached?.comic;
+        if (comic && Date.now() - cached.time < this.creatorPreviewTtl &&
+            typeof comic.id === "string" && typeof comic.title === "string" && typeof comic.cover === "string") {
+            return [new Comic({ id: comic.id, title: comic.title, cover: comic.cover })];
+        }
         try {
-            const { comics } = await this.loadCreator(slug, 1);
-            const preview = comics.slice(0, 1);
-            if (preview.length) this.creatorPreviews.set(slug, { time: Date.now(), comics: preview });
-            return preview;
+            const result = await this.loadCreator(slug, 1);
+            const first = result.comics[0];
+            if (!first) return [];
+            const { id, title, cover } = first;
+            const time = Date.now();
+            this.creatorPreviews.set(slug, { time, comic: { id, title, cover } });
+            this.creatorFrontPages.delete(slug);
+            this.creatorFrontPages.set(slug, { time, result });
+            if (this.creatorFrontPages.size > 12) this.creatorFrontPages.delete(this.creatorFrontPages.keys().next().value);
+            return [first];
         } catch (error) {
             // A broken creator archive shouldn't hide the other authors or the archive link.
             log("warning", "CosplayTele · Creator Preview", `${slug}: ${error.message}`);
@@ -182,25 +200,36 @@ class CosplayTeleSource extends ComicSource {
             this.creatorDirectoryEntries = this.loadCreators();
         }
         const creators = await this.creatorDirectoryEntries;
-        const pageSize = 3;
+        this.creatorPreviews ??= new Map(Object.entries(this.loadData("creatorPreviewsV1") ?? {}));
+        const pageSize = 6;
         const start = (page - 1) * pageSize;
-        const data = await Promise.all(creators.slice(start, start + pageSize).map(async ({ slug, label, shortName }) => ({
+        const entries = creators.slice(start, start + pageSize);
+        const previous = entries.map(({ slug }) => this.creatorPreviews.get(slug));
+        const data = await Promise.all(entries.map(async ({ slug, label, shortName }) => ({
             title: this.creatorDirectoryTitle(shortName),
             comics: await this.loadCreatorPreview(slug),
             viewMore: { page: "category", attributes: { category: label, param: `creator:${slug}` } },
         })));
+        if (entries.some(({ slug }, i) => this.creatorPreviews.get(slug) !== previous[i])) {
+            const cutoff = Date.now() - this.creatorPreviewTtl;
+            const cache = Object.fromEntries(creators.map(({ slug }) => [slug, this.creatorPreviews.get(slug)])
+                .filter(([, cached]) => cached?.time > cutoff));
+            this.saveData("creatorPreviewsV1", cache);
+        }
         return { data, maxPage: Math.ceil(creators.length / pageSize) };
     }
 
     loadCreator(slug, page) {
         if (!this.taxonomySlug.test(slug)) throw new Error("CosplayTele: invalid cosplayer category");
+        const cached = page === 1 && this.creatorFrontPages.get(slug);
+        if (cached && Date.now() - cached.time < 60 * 1000) return Promise.resolve(cached.result);
         return this.loadList(`/category/${slug}/`, page);
     }
 
     async loadPopular(page, range = "last7days") {
         const limit = 20;
         const url = `${this.baseUrl}/wp-json/wordpress-popular-posts/v1/popular-posts` +
-            `?offset=${(page - 1) * limit}&limit=${limit}&range=${range}&embed=true` +
+            `?offset=${(page - 1) * limit}&limit=${limit + 1}&range=${range}&embed=true` +
             "&_embed=wp%3Afeaturedmedia&_fields=title,link,_embedded,_links.wp%3Afeaturedmedia";
         const body = await this.get(url, "application/json");
         let posts;
@@ -212,7 +241,8 @@ class CosplayTeleSource extends ComicSource {
         if (!Array.isArray(posts)) throw new Error("CosplayTele: invalid popular posts response");
         const comics = [];
         const seen = new Set();
-        for (const post of posts) {
+        // The ranking API omits totals. Read one extra row without advancing the next offset.
+        for (const post of posts.slice(0, limit)) {
             const id = this.postId(post?.link);
             const rendered = post?.title?.rendered;
             if (!id || typeof rendered !== "string" || seen.has(id)) continue;
@@ -223,7 +253,7 @@ class CosplayTeleSource extends ComicSource {
             comics.push(new Comic({ id, title, cover: this.absoluteUrl(media, this.baseUrl + "/") ?? "" }));
         }
         if (posts.length && !comics.length) throw new Error("CosplayTele: invalid popular post entries");
-        return { comics, maxPage: posts.length >= limit ? page + 1 : page };
+        return { comics, maxPage: posts.length > limit ? page + 1 : page };
     }
 
     explore = [
@@ -275,7 +305,7 @@ class CosplayTeleSource extends ComicSource {
                 const requested = param.slice(9);
                 const path = this.taxonomyPath(requested, this.baseUrl + "/");
                 if (path !== requested) throw new Error("CosplayTele: invalid taxonomy archive");
-                return this.loadList(path, page);
+                return path.startsWith("/category/") ? this.loadCreator(path.slice(10, -1), page) : this.loadList(path, page);
             }
             const ranking = this.rankings.find(([key]) => key === param);
             if (ranking) return this.loadPopular(page, ranking[2]);

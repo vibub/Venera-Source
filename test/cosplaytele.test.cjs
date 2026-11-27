@@ -11,7 +11,7 @@ const script = readFileSync(join(root, 'cosplaytele.js'), 'utf8');
 const className = script.match(/^\s*class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+extends\s+ComicSource\b/m)[1];
 const id = '%2Fdemo-gallery%2F';
 
-function createSource(respond = () => assert.fail('Unexpected request')) {
+function createSource(respond = () => assert.fail('Unexpected request'), storage = new Map()) {
     const requests = [];
     const documents = new Set();
     const logs = [];
@@ -32,7 +32,10 @@ function createSource(respond = () => assert.fail('Unexpected request')) {
         dispose() { assert.ok(documents.delete(this)); }
     }
     const source = vm.runInNewContext(`${script}\nnew ${className}()`, {
-        ComicSource: class {},
+        ComicSource: class {
+            loadData(key) { return storage.get(key); }
+            saveData(key, value) { storage.set(key, plain(value)); }
+        },
         Comic: class { constructor(fields) { Object.assign(this, fields); } },
         ComicDetails: class { constructor(fields) { Object.assign(this, fields); } },
         HtmlDocument,
@@ -101,6 +104,24 @@ test('latest is 1-based, scopes results to main, and stops at the end', async ()
     assert.deepEqual(plain(await latest.load(2)), { comics: [{ id: '%2Fother-gallery%2F', title: 'Other', cover: '' }], maxPage: 2 });
     assert.deepEqual(requests.map(request => request.url), [`${base}/`, `${base}/page/2/`]);
     assert.equal(documents.size, 0);
+});
+
+test('HTML listings report the last numbered page from the main pagination bar', async () => {
+    const { source, requests } = createSource(url => {
+        const current = Number(url.pathname.match(/\/page\/(\d+)\//)?.[1] ?? 1);
+        return list(card('/demo-gallery/', 'Demo') + `<ul class="page-numbers nav-pagination links text-center">
+            <li><span class="page-number current">${current}</span></li>
+            <li><span class="page-number dots">…</span></li>
+            <li><a class="page-number" href="/category/demo/page/44/">44</a></li>
+            <li><a class="page-number">9007199254740993</a></li>
+        </ul>`, current < 44) + '<aside><div class="nav-pagination"><a class="page-number">99</a></div></aside>';
+    });
+    for (const page of [1, 2, 44]) {
+        assert.equal((await source.categoryComics.load('Demo', 'taxonomy:/category/demo/', [], page)).maxPage, 44);
+    }
+    assert.equal((await source.search.load('Demo', [], 1)).maxPage, 44);
+    assert.equal((await explore(source, 'Latest').load(1)).maxPage, 44);
+    assert.equal(requests.length, 5);
 });
 
 test('search escapes the query and applies the selected category to all pages', async () => {
@@ -200,9 +221,9 @@ test('directory pages list one real gallery per creator and refresh independentl
     assert.equal(initial.options[29], 'sample%2D30-Sample 30');
     assert.equal(requests.length, 1);
     const before = await directory.load(1);
-    assert.equal(before.maxPage, 12);
-    assert.equal(before.data.length, 3);
-    assert.equal(requests.length, 5);
+    assert.equal(before.maxPage, 6);
+    assert.equal(before.data.length, 6);
+    assert.equal(requests.length, 8);
     assert.ok(before.data.every(row => row.comics.length === 1 && row.viewMore.page === 'category'));
     assert.deepEqual(plain(before.data[0]), {
         title: 'First Creator', comics: [{ id, title: 'Demo', cover: `${base}/demo.jpg` }],
@@ -210,18 +231,18 @@ test('directory pages list one real gallery per creator and refresh independentl
     });
     changed = true;
     const next = await directory.load(2);
-    assert.equal(next.data.length, 3);
-    assert.equal(next.data[0].viewMore.attributes.param, 'creator:sample-4');
-    assert.equal(requests.length, 8);
-    const last = await directory.load(12);
-    assert.equal(last.maxPage, 12);
-    assert.equal(last.data.length, 2);
-    assert.equal(last.data[0].viewMore.attributes.param, 'creator:sample-34');
-    assert.equal(requests.length, 10);
-    assert.deepEqual(plain(await directory.load(13)), { data: [], maxPage: 12 });
-    assert.equal(requests.length, 10);
+    assert.equal(next.data.length, 6);
+    assert.equal(next.data[0].viewMore.attributes.param, 'creator:sample-7');
+    assert.equal(requests.length, 14);
+    const last = await directory.load(6);
+    assert.equal(last.maxPage, 6);
+    assert.equal(last.data.length, 5);
+    assert.equal(last.data[0].viewMore.attributes.param, 'creator:sample-31');
+    assert.equal(requests.length, 19);
+    assert.deepEqual(plain(await directory.load(7)), { data: [], maxPage: 6 });
+    assert.equal(requests.length, 19);
     const after = await directory.load(1);
-    assert.equal(requests.length, 12); // Refresh the directory and fetch only the new author's preview.
+    assert.equal(requests.length, 21); // Refresh the directory and fetch only the new author's preview.
     assert.equal(after.maxPage, 1);
     assert.equal(after.data.length, 2);
     assert.equal(after.data[0].title, '长名字作者甲乙丙丁…');
@@ -267,13 +288,31 @@ test('empty or failed previews keep their creator links and archive concurrency 
     assert.equal(documents.size, 0);
 });
 
-test('cached previews expire after six hours without touching the directory pagination', async () => {
-    const { source, requests } = createSource(() => list(card('/demo-gallery/', 'Demo')));
-    await source.loadCreatorPreview('demo');
-    assert.equal(requests.length, 1);
-    source.creatorPreviews.get('demo').time -= 6 * 60 * 60 * 1000;
-    assert.equal((await source.loadCreatorPreview('demo'))[0].id, id);
-    assert.equal(requests.length, 2);
+test('preview metadata survives source reload and the recent author homepage is reused', async () => {
+    const storage = new Map();
+    const respond = url => {
+        if (url.pathname === '/best-cosplayer/') return list('<div class="row-small"><div class="text"><a href="/category/demo/">Demo</a></div></div>');
+        assert.equal(url.pathname, '/category/demo/');
+        return list(card('/demo-gallery/', 'Demo') + card('/other-gallery/', 'Other') +
+            '<ul class="nav-pagination"><li><a class="page-number" href="/category/demo/page/44/">44</a></li></ul>', true);
+    };
+    const first = createSource(respond, storage);
+    const dir = first.source.explore.find(entry => entry.type === 'mixed');
+    const { data: [entry] } = await dir.load(1);
+    assert.equal(first.requests.length, 2);
+    const { category, param } = entry.viewMore.attributes;
+    const archive = await first.source.categoryComics.load(category, param, [], 1);
+    assert.equal(archive.comics.length, 2);
+    assert.equal(archive.maxPage, 44);
+    assert.equal(first.requests.length, 2);
+    assert.deepEqual(Object.values(storage.get('creatorPreviewsV1')).map(v => v.comic), [{ id, title: 'Demo', cover: '' }]);
+    const reopened = createSource(respond, storage);
+    const reopenedDir = reopened.source.explore.find(entry => entry.type === 'mixed');
+    assert.deepEqual(plain((await reopenedDir.load(1)).data), [plain(entry)]);
+    assert.equal(reopened.requests.length, 1);
+    reopened.source.creatorPreviews.get('demo').time -= 6 * 60 * 60 * 1000;
+    await reopenedDir.load(1);
+    assert.equal(reopened.requests.length, 3);
 });
 
 test('Top Cosplay uses the 24-hour, custom three-day and seven-day ranges directly', async () => {
@@ -293,14 +332,14 @@ test('Top Cosplay uses the 24-hour, custom three-day and seven-day ranges direct
     ]);
 });
 
-test('popular uses offset 0, skips to offset 20, decodes titles and stops on a short page', async () => {
+test('popular keeps offsets at 20 per page and uses a lookahead row to avoid empty last pages', async () => {
     const { source, requests, documents } = createSource(url => {
         assert.equal(url.pathname, '/wp-json/wordpress-popular-posts/v1/popular-posts');
-        assert.equal(url.searchParams.get('limit'), '20');
+        assert.equal(url.searchParams.get('limit'), '21');
         assert.equal(url.searchParams.get('range'), 'last7days');
         assert.equal(url.searchParams.get('_embed'), 'wp:featuredmedia');
         const offset = Number(url.searchParams.get('offset'));
-        return JSON.stringify(Array.from({ length: offset === 0 ? 20 : 1 }, (_, i) => popularPost(offset + i)));
+        return JSON.stringify(Array.from({ length: offset === 0 ? 21 : 20 }, (_, i) => popularPost(offset + i)));
     });
     const popular = explore(source, 'Popular');
     const first = await popular.load(1);
@@ -309,6 +348,7 @@ test('popular uses offset 0, skips to offset 20, decodes titles and stops on a s
     assert.equal(first.comics.length, 20);
     assert.equal(first.maxPage, 2);
     assert.equal(second.comics[0].id, '%2Fgallery-20%2F');
+    assert.equal(second.comics.length, 20);
     assert.equal(second.maxPage, 2);
     assert.deepEqual(requests.map(request => new URL(request.url).searchParams.get('offset')), ['0', '20']);
     assert.equal(documents.size, 0);
