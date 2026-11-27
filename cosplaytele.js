@@ -4,7 +4,7 @@
 class CosplayTeleSource extends ComicSource {
     name = "CosplayTele";
     key = "cosplaytele";
-    version = "1.3.1";
+    version = "1.3.2";
     minAppVersion = "1.18.5";
     url = "";
 
@@ -23,6 +23,7 @@ class CosplayTeleSource extends ComicSource {
     ];
     creatorSlug = /^(?:[a-z0-9_-]|%[89a-f][0-9a-f])+$/i;
     creatorDirectoryEntries = null;
+    creatorPreviews = new Map();
 
     async get(url, accept, headers) {
         const response = await Network.get(url, { Accept: accept, ...headers });
@@ -149,9 +150,13 @@ class CosplayTeleSource extends ComicSource {
     }
 
     async loadCreatorPreview(slug) {
+        const cached = this.creatorPreviews.get(slug);
+        if (cached && Date.now() - cached.time < 6 * 60 * 60 * 1000) return cached.comics;
         try {
             const { comics } = await this.loadCreator(slug, 1);
-            return comics.slice(0, 1);
+            const preview = comics.slice(0, 1);
+            if (preview.length) this.creatorPreviews.set(slug, { time: Date.now(), comics: preview });
+            return preview;
         } catch (error) {
             // A broken creator archive shouldn't hide the other authors or the archive link.
             log("warning", "CosplayTele · Creator Preview", `${slug}: ${error.message}`);
@@ -165,19 +170,13 @@ class CosplayTeleSource extends ComicSource {
             this.creatorDirectoryEntries = this.loadCreators();
         }
         const creators = await this.creatorDirectoryEntries;
-        const pageSize = 6;
+        const pageSize = 3;
         const start = (page - 1) * pageSize;
-        const data = [];
-        const entries = creators.slice(start, start + pageSize);
-        // Fetch two archives at a time; each author contributes just one section and one card.
-        for (let i = 0; i < entries.length; i += 2) {
-            const sections = await Promise.all(entries.slice(i, i + 2).map(async ({ slug, label, shortName }) => ({
-                title: this.creatorDirectoryTitle(shortName),
-                comics: await this.loadCreatorPreview(slug),
-                viewMore: { page: "category", attributes: { category: label, param: `creator:${slug}` } },
-            })));
-            data.push(...sections);
-        }
+        const data = await Promise.all(creators.slice(start, start + pageSize).map(async ({ slug, label, shortName }) => ({
+            title: this.creatorDirectoryTitle(shortName),
+            comics: await this.loadCreatorPreview(slug),
+            viewMore: { page: "category", attributes: { category: label, param: `creator:${slug}` } },
+        })));
         return { data, maxPage: Math.ceil(creators.length / pageSize) };
     }
 

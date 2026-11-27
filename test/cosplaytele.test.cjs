@@ -200,23 +200,28 @@ test('directory pages list one real gallery per creator and refresh independentl
     assert.equal(initial.options[29], 'sample%2D30-Sample 30');
     assert.equal(requests.length, 1);
     const before = await directory.load(1);
-    assert.equal(before.maxPage, 6);
-    assert.equal(before.data.length, 6);
-    assert.equal(requests.length, 8);
+    assert.equal(before.maxPage, 12);
+    assert.equal(before.data.length, 3);
+    assert.equal(requests.length, 5);
     assert.ok(before.data.every(row => row.comics.length === 1 && row.viewMore.page === 'category'));
     assert.deepEqual(plain(before.data[0]), {
         title: 'First Creator', comics: [{ id, title: 'Demo', cover: `${base}/demo.jpg` }],
         viewMore: { page: 'category', attributes: { category: 'First Creator (first.handle)', param: 'creator:first-creator' } },
     });
     changed = true;
-    const last = await directory.load(6);
-    assert.equal(last.maxPage, 6);
-    assert.equal(last.data.length, 5);
-    assert.equal(last.data[0].viewMore.attributes.param, 'creator:sample-31');
-    assert.equal(requests.length, 13);
-    assert.deepEqual(plain(await directory.load(7)), { data: [], maxPage: 6 });
-    assert.equal(requests.length, 13);
+    const next = await directory.load(2);
+    assert.equal(next.data.length, 3);
+    assert.equal(next.data[0].viewMore.attributes.param, 'creator:sample-4');
+    assert.equal(requests.length, 8);
+    const last = await directory.load(12);
+    assert.equal(last.maxPage, 12);
+    assert.equal(last.data.length, 2);
+    assert.equal(last.data[0].viewMore.attributes.param, 'creator:sample-34');
+    assert.equal(requests.length, 10);
+    assert.deepEqual(plain(await directory.load(13)), { data: [], maxPage: 12 });
+    assert.equal(requests.length, 10);
     const after = await directory.load(1);
+    assert.equal(requests.length, 12); // Refresh the directory and fetch only the new author's preview.
     assert.equal(after.maxPage, 1);
     assert.equal(after.data.length, 2);
     assert.equal(after.data[0].title, '长名字作者甲乙丙丁…');
@@ -235,7 +240,7 @@ test('directory pages list one real gallery per creator and refresh independentl
 test('empty or failed previews keep their creator links and archive concurrency stays bounded', async () => {
     let active = 0;
     let peak = 0;
-    const { source, logs, documents } = createSource(async url => {
+    const { source, requests, logs, documents } = createSource(async url => {
         if (url.pathname === '/best-cosplayer/') return list(`<div class="row-small"><div class="text">
             <a href="/category/ok/">OK</a><a href="/category/empty/">Empty</a><a href="/category/fail/">Fail</a>
         </div></div>`);
@@ -245,14 +250,30 @@ test('empty or failed previews keep their creator links and archive concurrency 
         if (url.pathname === '/category/fail/') return { status: 503, body: '' };
         return list(url.pathname === '/category/ok/' ? card('/demo-gallery/', 'Demo') : '');
     });
-    const { data } = await source.explore.find(entry => entry.type === 'mixed').load(1);
+    const directory = source.explore.find(entry => entry.type === 'mixed');
+    const { data } = await directory.load(1);
     assert.deepEqual(plain(data.map(row => [row.viewMore.attributes.param, row.comics.length])), [
         ['creator:ok', 1], ['creator:empty', 0], ['creator:fail', 0],
     ]);
-    assert.equal(peak, 2);
+    assert.equal(peak, 3);
     assert.equal(logs.length, 1);
     assert.match(logs[0][2], /fail: .*HTTP 503/);
+    assert.deepEqual(plain((await directory.load(1)).data), plain(data));
+    assert.equal(logs.length, 2); // Failed previews are retried, not cached as empty.
+    const paths = requests.map(({ url }) => new URL(url).pathname);
+    assert.equal(paths.filter(path => path === '/category/ok/').length, 1);
+    assert.equal(paths.filter(path => path === '/category/empty/').length, 2);
+    assert.equal(paths.filter(path => path === '/category/fail/').length, 2);
     assert.equal(documents.size, 0);
+});
+
+test('cached previews expire after six hours without touching the directory pagination', async () => {
+    const { source, requests } = createSource(() => list(card('/demo-gallery/', 'Demo')));
+    await source.loadCreatorPreview('demo');
+    assert.equal(requests.length, 1);
+    source.creatorPreviews.get('demo').time -= 6 * 60 * 60 * 1000;
+    assert.equal((await source.loadCreatorPreview('demo'))[0].id, id);
+    assert.equal(requests.length, 2);
 });
 
 test('Top Cosplay uses the 24-hour, custom three-day and seven-day ranges directly', async () => {
