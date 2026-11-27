@@ -4,7 +4,7 @@
 class CosplayTeleSource extends ComicSource {
     name = "CosplayTele";
     key = "cosplaytele";
-    version = "1.2.1";
+    version = "1.3.0";
     minAppVersion = "1.18.5";
     url = "";
 
@@ -22,6 +22,7 @@ class CosplayTeleSource extends ComicSource {
         ["top7d", "7 Days", "last7days"],
     ];
     creatorSlug = /^(?:[a-z0-9_-]|%[89a-f][0-9a-f])+$/i;
+    creatorDirectoryEntries = null;
 
     async get(url, accept, headers) {
         const response = await Network.get(url, { Accept: accept, ...headers });
@@ -147,14 +148,37 @@ class CosplayTeleSource extends ComicSource {
         return title;
     }
 
-    async loadCreatorDirectory() {
-        const creators = await this.loadCreators();
-        return creators.map(({ slug, label, shortName }) => ({
-            // Use native section headers as directory rows, without fake Comic items or cover requests.
-            title: this.creatorDirectoryTitle(shortName),
-            comics: [],
-            viewMore: { page: "category", attributes: { category: label, param: `creator:${slug}` } },
-        }));
+    async loadCreatorPreview(slug) {
+        try {
+            const { comics } = await this.loadCreator(slug, 1);
+            return comics.slice(0, 1);
+        } catch (error) {
+            // A broken creator archive shouldn't hide the other authors or the archive link.
+            log("warning", "CosplayTele · Creator Preview", `${slug}: ${error.message}`);
+            return [];
+        }
+    }
+
+    async loadCreatorDirectory(page) {
+        // Venera-Next 1.18.5 sends page 1 on first load and refresh, including for mixed pages.
+        if (page === 1 || !this.creatorDirectoryEntries) {
+            this.creatorDirectoryEntries = this.loadCreators();
+        }
+        const creators = await this.creatorDirectoryEntries;
+        const pageSize = 6;
+        const start = (page - 1) * pageSize;
+        const data = [];
+        const entries = creators.slice(start, start + pageSize);
+        // Fetch two archives at a time; each author contributes just one section and one card.
+        for (let i = 0; i < entries.length; i += 2) {
+            const sections = await Promise.all(entries.slice(i, i + 2).map(async ({ slug, label, shortName }) => ({
+                title: this.creatorDirectoryTitle(shortName),
+                comics: await this.loadCreatorPreview(slug),
+                viewMore: { page: "category", attributes: { category: label, param: `creator:${slug}` } },
+            })));
+            data.push(...sections);
+        }
+        return { data, maxPage: Math.ceil(creators.length / pageSize) };
     }
 
     loadCreator(slug, page) {
@@ -194,7 +218,7 @@ class CosplayTeleSource extends ComicSource {
     explore = [
         { title: "CosplayTele · Latest", type: "multiPageComicList", load: page => this.loadList("/", page) },
         { title: "CosplayTele · Popular", type: "multiPageComicList", load: page => this.loadPopular(page) },
-        { title: "CosplayTele · Creator Directory", type: "multiPartPage", load: () => this.loadCreatorDirectory() },
+        { title: "CosplayTele · Creator Directory", type: "mixed", load: page => this.loadCreatorDirectory(page) },
     ];
 
     search = {

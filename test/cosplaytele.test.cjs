@@ -14,6 +14,7 @@ const id = '%2Fdemo-gallery%2F';
 function createSource(respond = () => assert.fail('Unexpected request')) {
     const requests = [];
     const documents = new Set();
+    const logs = [];
     class HtmlDocument {
         constructor(html) {
             const $ = load(html);
@@ -35,13 +36,14 @@ function createSource(respond = () => assert.fail('Unexpected request')) {
         Comic: class { constructor(fields) { Object.assign(this, fields); } },
         ComicDetails: class { constructor(fields) { Object.assign(this, fields); } },
         HtmlDocument,
+        log: (...entry) => logs.push(entry),
         Network: { get: async (url, headers) => {
             requests.push({ url, headers });
-            const body = respond(new URL(url));
+            const body = await respond(new URL(url));
             return typeof body === 'string' ? { status: 200, body } : body;
         } },
     }, { filename: 'cosplaytele.js' });
-    return { source, requests, documents };
+    return { source, requests, documents, logs };
 }
 
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -168,44 +170,79 @@ test('Best Cosplayer fetches short-name shortcuts once and pages the chosen crea
     assert.equal(documents.size, 0);
 });
 
-test('Best Cosplayer shows the first 30 authors and the full directory stays up to date', async () => {
+test('directory pages list one real gallery per creator and refresh independently of the first 30 shortcuts', async () => {
     let changed = false;
     const { source, requests, documents } = createSource(url => {
-        if (url.pathname === '/category/new-creator/page/2/') return list(card('/demo-gallery/', 'Demo'));
-        assert.equal(url.pathname, '/best-cosplayer/');
-        const names = changed
-            ? [['new-creator', '长名字作者甲乙丙丁戊己庚辛 （New handle）']]
-            : [['first-creator', 'First Creator (first.handle)']];
-        return `<main><div class="row-small"><div class="text">${names.concat(
-            Array.from({ length: 34 }, (_, i) => [`sample-${i + 2}`, `Sample ${i + 2}`]),
-        ).map(([slug, name]) => `<a href="/category/${slug}/">${name}</a>`).join('')}</div></div></main>`;
+        if (url.pathname === '/best-cosplayer/') {
+            const names = changed
+                ? [['new-creator', '长名字作者甲乙丙丁戊己庚辛 （New handle）']]
+                : [['first-creator', 'First Creator (first.handle)']];
+            return `<main><div class="row-small"><div class="text">${names.concat(
+                Array.from({ length: changed ? 1 : 34 }, (_, i) => [`sample-${i + 2}`, `Sample ${i + 2}`]),
+            ).map(([slug, name]) => `<a href="/category/${slug}/">${name}</a>`).join('')}</div></div></main>`;
+        }
+        assert.match(url.pathname, /^\/category\/\w[\w-]*\/(?:page\/2\/)?$/);
+        return list(card('/demo-gallery/', 'Demo', '<img src="/demo.jpg">') + card('/another-gallery/', 'Another'));
     });
     const directory = source.explore.find(entry => entry.title.endsWith('Creator Directory'));
-    assert.equal(directory.type, 'multiPartPage');
+    assert.equal(directory.type, 'mixed');
     const [initial] = await source.categoryComics.optionLoader('Best Cosplayer', 'best');
     assert.equal(initial.options.length, 30);
-    assert.equal(initial.options[0], 'first%2Dcreator-First Creator');
     assert.equal(initial.options[29], 'sample%2D30-Sample 30');
-    const before = await directory.load();
-    assert.equal(before.length, 35);
-    assert.equal(before[30].viewMore.attributes.param, 'creator:sample-31');
-    assert.equal(before[0].viewMore.attributes.param, 'creator:first-creator');
+    assert.equal(requests.length, 1);
+    const before = await directory.load(1);
+    assert.equal(before.maxPage, 6);
+    assert.equal(before.data.length, 6);
+    assert.equal(requests.length, 8);
+    assert.ok(before.data.every(row => row.comics.length === 1 && row.viewMore.page === 'category'));
+    assert.deepEqual(plain(before.data[0]), {
+        title: 'First Creator', comics: [{ id, title: 'Demo', cover: `${base}/demo.jpg` }],
+        viewMore: { page: 'category', attributes: { category: 'First Creator (first.handle)', param: 'creator:first-creator' } },
+    });
     changed = true;
-    const after = await directory.load();
-    assert.equal(after.length, 35);
-    assert.equal(after[0].title, '长名字作者甲乙丙丁…');
-    assert.equal(after[0].viewMore.attributes.category, '长名字作者甲乙丙丁戊己庚辛 （New handle）');
-    assert.ok(after.every(row => row.comics.length === 0 && row.viewMore.page === 'category'));
-    assert.ok(!after.some(row => row.viewMore.attributes.param === 'creator:first-creator'));
-    const [refreshed] = await source.categoryComics.optionLoader('Best Cosplayer', 'best');
-    assert.equal(refreshed.options[0], 'new%2Dcreator-长名字作者甲乙丙丁戊己庚辛');
-    assert.equal(requests.length, 4);
-    assert.ok(requests.every(request => request.headers['cache-time'] === 'no'));
-    const { category, param } = after[0].viewMore.attributes;
+    const last = await directory.load(6);
+    assert.equal(last.maxPage, 6);
+    assert.equal(last.data.length, 5);
+    assert.equal(last.data[0].viewMore.attributes.param, 'creator:sample-31');
+    assert.equal(requests.length, 13);
+    assert.deepEqual(plain(await directory.load(7)), { data: [], maxPage: 6 });
+    assert.equal(requests.length, 13);
+    const after = await directory.load(1);
+    assert.equal(after.maxPage, 1);
+    assert.equal(after.data.length, 2);
+    assert.equal(after.data[0].title, '长名字作者甲乙丙丁…');
+    const { category, param } = after.data[0].viewMore.attributes;
+    assert.equal(category, '长名字作者甲乙丙丁戊己庚辛 （New handle）');
+    assert.equal(param, 'creator:new-creator');
     assert.deepEqual(plain(await source.categoryComics.optionLoader(category, param)), []);
     assert.equal((await source.categoryComics.load(category, param, [], 2)).comics[0].id, id);
-    assert.equal(requests.length, 5);
-    assert.equal(requests[4].headers['cache-time'], undefined);
+    assert.equal(new URL(requests.at(-1).url).pathname, '/category/new-creator/page/2/');
+    const directoryRequests = requests.filter(r => new URL(r.url).pathname === '/best-cosplayer/');
+    assert.equal(directoryRequests.length, 3);
+    assert.ok(directoryRequests.every(r => r.headers['cache-time'] === 'no'));
+    assert.equal(documents.size, 0);
+});
+
+test('empty or failed previews keep their creator links and archive concurrency stays bounded', async () => {
+    let active = 0;
+    let peak = 0;
+    const { source, logs, documents } = createSource(async url => {
+        if (url.pathname === '/best-cosplayer/') return list(`<div class="row-small"><div class="text">
+            <a href="/category/ok/">OK</a><a href="/category/empty/">Empty</a><a href="/category/fail/">Fail</a>
+        </div></div>`);
+        peak = Math.max(peak, ++active);
+        await new Promise(resolve => setImmediate(resolve));
+        active--;
+        if (url.pathname === '/category/fail/') return { status: 503, body: '' };
+        return list(url.pathname === '/category/ok/' ? card('/demo-gallery/', 'Demo') : '');
+    });
+    const { data } = await source.explore.find(entry => entry.type === 'mixed').load(1);
+    assert.deepEqual(plain(data.map(row => [row.viewMore.attributes.param, row.comics.length])), [
+        ['creator:ok', 1], ['creator:empty', 0], ['creator:fail', 0],
+    ]);
+    assert.equal(peak, 2);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0][2], /fail: .*HTTP 503/);
     assert.equal(documents.size, 0);
 });
 
@@ -305,7 +342,7 @@ test('HTTP, malformed popular responses, broken gallery and invalid IDs produce 
     await assert.rejects(unavailable.categoryComics.load('24 Hours', 'top24h', [], 1), /HTTP 403/);
     const noDirectory = createSource(() => list()).source;
     await assert.rejects(noDirectory.categoryComics.optionLoader('Best Cosplayer', 'best'), /directory not found or empty/);
-    await assert.rejects(noDirectory.explore.find(entry => entry.type === 'multiPartPage').load(), /directory not found or empty/);
+    await assert.rejects(noDirectory.explore.find(entry => entry.type === 'mixed').load(1), /directory not found or empty/);
     assert.throws(() => noDirectory.categoryComics.load('', 'creator:../other', [], 1), /invalid cosplayer category/);
     await assert.rejects(explore(createSource(() => '<html/>').source, 'Popular').load(1), /invalid popular posts JSON/);
     await assert.rejects(explore(createSource(() => '{}').source, 'Popular').load(1), /invalid popular posts response/);
