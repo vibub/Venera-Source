@@ -4,7 +4,7 @@
 class CosplayTeleSource extends ComicSource {
     name = "CosplayTele";
     key = "cosplaytele";
-    version = "1.3.2";
+    version = "1.4.0";
     minAppVersion = "1.18.5";
     url = "";
 
@@ -21,9 +21,10 @@ class CosplayTeleSource extends ComicSource {
         ["top3d", "3 Days", "custom&time_quantity=3&time_unit=day"],
         ["top7d", "7 Days", "last7days"],
     ];
-    creatorSlug = /^(?:[a-z0-9_-]|%[89a-f][0-9a-f])+$/i;
+    taxonomySlug = /^(?:[a-z0-9_-]|%[89a-f][0-9a-f])+$/i;
     creatorDirectoryEntries = null;
     creatorPreviews = new Map();
+    tagPaths = new Map();
 
     async get(url, accept, headers) {
         const response = await Network.get(url, { Accept: accept, ...headers });
@@ -55,6 +56,16 @@ class CosplayTeleSource extends ComicSource {
         if (/^[^/]*:/.test(url) || /^[?#]/.test(url)) return null;
         if (url.startsWith("/")) return this.baseUrl + url;
         return pageUrl.slice(0, pageUrl.lastIndexOf("/") + 1) + url;
+    }
+
+    taxonomyPath(value, pageUrl) {
+        const href = this.absoluteUrl(value, pageUrl);
+        const match = href?.match(/^https?:\/\/(?:www\.)?cosplaytele\.com\/(category|tag)\/([^/?#]+)\/?(?:[?#]|$)/i);
+        if (!match || !this.taxonomySlug.test(match[2])) return null;
+        const path = `/${match[1].toLowerCase()}/${match[2]}/`;
+        if (path === "/category/no-nude/") return this.categories.find(([key]) => key === "ero")[2];
+        if (path === "/category/nude/") return this.categories.find(([key]) => key === "nude")[2];
+        return path;
     }
 
     postId(value) {
@@ -118,10 +129,11 @@ class CosplayTeleSource extends ComicSource {
         return this.getHtml(url, document => {
             const creators = new Map();
             for (const link of document.querySelectorAll("main .row-small .text a")) {
-                const href = this.absoluteUrl(link.attributes.href, url);
-                const slug = href?.match(/^https?:\/\/(?:www\.)?cosplaytele\.com\/category\/([^/?#]+)\/?(?:[?#]|$)/i)?.[1];
+                const path = this.taxonomyPath(link.attributes.href, url);
                 const label = link.text.replace(/\s+/g, " ").trim();
-                if (slug && this.creatorSlug.test(slug) && label && !creators.has(slug)) creators.set(slug, label);
+                if (!path?.startsWith("/category/") || !label) continue;
+                const slug = path.slice(10, -1);
+                if (!creators.has(slug)) creators.set(slug, label);
             }
             if (!creators.size) throw new Error("CosplayTele: Best Cosplayer directory not found or empty");
             return Array.from(creators, ([slug, label]) => ({ slug, label,
@@ -181,7 +193,7 @@ class CosplayTeleSource extends ComicSource {
     }
 
     loadCreator(slug, page) {
-        if (!this.creatorSlug.test(slug)) throw new Error("CosplayTele: invalid cosplayer category");
+        if (!this.taxonomySlug.test(slug)) throw new Error("CosplayTele: invalid cosplayer category");
         return this.loadList(`/category/${slug}/`, page);
     }
 
@@ -259,6 +271,12 @@ class CosplayTeleSource extends ComicSource {
         load: (category, param, options, page) => {
             if (param === "best") return this.loadCreator(decodeURIComponent(options?.[0] ?? ""), page);
             if (param?.startsWith("creator:")) return this.loadCreator(param.slice(8), page);
+            if (param?.startsWith("taxonomy:")) {
+                const requested = param.slice(9);
+                const path = this.taxonomyPath(requested, this.baseUrl + "/");
+                if (path !== requested) throw new Error("CosplayTele: invalid taxonomy archive");
+                return this.loadList(path, page);
+            }
             const ranking = this.rankings.find(([key]) => key === param);
             if (ranking) return this.loadPopular(page, ranking[2]);
             const path = this.categories.find(([key]) => key === param)?.[2];
@@ -268,6 +286,10 @@ class CosplayTeleSource extends ComicSource {
     };
 
     comic = {
+        onClickTag: (namespace, tag) => {
+            const path = this.tagPaths.get(`${namespace}:${tag}`);
+            return path ? { page: "category", attributes: { category: tag, param: `taxonomy:${path}` } } : null;
+        },
         loadInfo: async id => {
             const url = this.postUrl(id);
             return this.getHtml(url, document => {
@@ -277,12 +299,15 @@ class CosplayTeleSource extends ComicSource {
                     ?? this.imageUrl(document.querySelector(".gallery-item img"), url) ?? "";
                 const tags = {};
                 for (const link of document.querySelectorAll("#main a")) {
-                    const href = this.absoluteUrl(link.attributes.href, url);
-                    const namespace = href?.match(/^https?:\/\/(?:www\.)?cosplaytele\.com\/(category|tag)\/[^/?#]/i)?.[1];
+                    const path = this.taxonomyPath(link.attributes.href, url);
                     const label = link.text.trim();
-                    if (!namespace || !label) continue;
+                    if (!path || !label) continue;
+                    const namespace = path.split("/")[1];
                     const values = tags[namespace] ??= [];
-                    if (!values.includes(label)) values.push(label);
+                    if (values.includes(label)) continue;
+                    values.push(label);
+                    // The synchronous host callback receives only the namespace and visible label.
+                    this.tagPaths.set(`${namespace}:${label}`, path);
                 }
                 const updateTime = document.querySelector("time.updated")?.attributes.datetime
                     ?.match(/^\d{4}-\d{2}-\d{2}(?=$|[T ])/)?.[0];

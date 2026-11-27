@@ -329,6 +329,55 @@ test('gallery detail is unchaptered; page order, repeated images and image heade
     assert.equal(documents.size, 0);
 });
 
+test('detail taxonomy chips open their own archives using the actual href and paginate', async () => {
+    const detail = gallery.replace('</main>', `
+        <a href="/category/fixture-author/?source=detail">作者示例 (Example Author)</a>
+        <a href="//www.cosplaytele.com/category/game-series#top">Game Series</a>
+        <a href="/tag/the-game/">Game Series</a>
+        <a href="/tag/%e6%b5%8b%e8%af%95/">虚构角色</a>
+        <a href="/category/no-nude/">Old Ero</a>
+        <a href="/tag/%2e%2e/">Invalid path</a>
+        <a href="/category/game-series/page/2/">Invalid archive</a>
+        <a href="https://example.invalid/category/spoof/">External</a>
+    </main>`);
+    const { source, requests, documents } = createSource(url => {
+        if (url.pathname === '/demo-gallery/') return detail;
+        if (url.pathname.endsWith('/page/2/')) return list();
+        return list(card('/demo-gallery/', 'Demo'), true);
+    });
+    assert.equal(source.comic.onClickTag('category', 'Game Series'), null);
+    const { tags } = await source.comic.loadInfo(id);
+    assert.deepEqual(plain(tags), {
+        category: ['Cosplay', '作者示例 (Example Author)', 'Game Series', 'Old Ero'],
+        tag: ['Example', 'Game Series', '虚构角色'],
+    });
+    const links = [
+        ['category', '作者示例 (Example Author)', '/category/fixture-author/'],
+        ['category', 'Game Series', '/category/game-series/'],
+        ['tag', 'Game Series', '/tag/the-game/'],
+        ['tag', '虚构角色', '/tag/%e6%b5%8b%e8%af%95/'],
+        ['category', 'Old Ero', '/category/cosplay-ero/'],
+    ];
+    for (const [namespace, label, path] of links) {
+        const target = source.comic.onClickTag(namespace, label);
+        assert.deepEqual(plain(target), { page: 'category', attributes: { category: label, param: `taxonomy:${path}` } });
+        const { category, param } = target.attributes;
+        assert.deepEqual(plain(await source.categoryComics.optionLoader(category, param)), []);
+        const result = await source.categoryComics.load(category, param, [], 1);
+        assert.equal(result.comics[0].id, id);
+        assert.equal(result.maxPage, 2);
+        assert.deepEqual(plain(await source.categoryComics.load(category, param, [], 2)), { comics: [], maxPage: 2 });
+    }
+    assert.equal(source.comic.onClickTag('update', 'Game Series'), null);
+    assert.equal(source.comic.onClickTag('category', 'External'), null);
+    assert.throws(() => source.categoryComics.load('External', 'taxonomy://example.invalid/tag/spoof/', [], 1), /invalid taxonomy archive/);
+    assert.throws(() => source.categoryComics.load('Invalid', 'taxonomy:/tag/%2e%2e/', [], 1), /invalid taxonomy archive/);
+    assert.deepEqual(requests.map(({ url }) => url), [
+        `${base}/demo-gallery/`, ...links.flatMap(([, , path]) => [`${base}${path}`, `${base}${path}page/2/`]),
+    ]);
+    assert.equal(documents.size, 0);
+});
+
 test('Recommend For You exposes only related galleries with stable IDs in site order', async () => {
     const related = (href, title, img = '') => `<li><a class="crp_link" href="${href}">${img}<span class="crp_title">${title}</span></a></li>`;
     const body = gallery.replace('</main>', `<div class="entry-content"><div class="crp_related crp-thumbs-grid"><h3>Recommend For You:</h3><ul>
