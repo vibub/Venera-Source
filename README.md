@@ -1,16 +1,31 @@
-# CosplayTele for Venera-Next
+# Venera-Next 图库源
 
-把 [Keiyoushi 的 CosplayTele 扩展](https://keiyoushi.github.io/extensions/#7395748658970167454) 移植到 Venera-Next。支持最新、热门排行、关键词搜索、分类筛选、详情推荐和单册图库阅读。仓库只分发代码，不存放图片，也不需要额外部署服务器。
+本仓库提供 CosplayTele 和 V2PH（微图坊），只分发源脚本和索引，不存放图片，也不需要部署服务器。
+
+| 漫画源 | 入口与功能 |
+| --- | --- |
+| [CosplayTele](cosplaytele.js) | 最新、分时排行、搜索、分类、作者目录、详情推荐、图库阅读 |
+| [V2PH](v2ph.js) | 最新、热门精选、搜索、分类与地区、模特／发行方／标签跳转、详情推荐（源站有提供时）、分页图库阅读 |
 
 ## 从本地文件安装
 
 1. 使用 [Venera-Next v1.18.5](https://github.com/CyrilPeng/Venera-Next/releases/tag/v1.18.5) 或更新版。首版声明最低版本为 `1.18.5`，原版 Venera 与更早版本未验证。
-2. 打开 **漫画源 → 添加来源 → 选择文件**，选择 [cosplaytele.js](cosplaytele.js)。预览应显示 `CosplayTele`，点击 **安装漫画源**。
-3. 在「发现」打开最新与近七日热门，或用搜索入口选择 `CosplayTele`。打开图集即可阅读。点详情「信息」里的分类或标签名称，可在应用内打开对应作品列表；最新、搜索、分类、标签和作者作品列表从源站分页栏读取总页数；有末页数字时，第一页就能显示完整总数。热门排行接口没有总数，只会在确认有下一条作品时开放下一页。详情下方还会显示源站提供的 **Recommend For You**（相关推荐）。
-4. 在分类页打开 **Best Cosplayer**，可按短名切换源站目录前 30 位作者（选项超过 8 个时，Venera-Next 会用下拉框显示）；退出后重新进入可更新这组选项。完整名单在 **发现 → CosplayTele · 作者目录**，滚动时每批并行加载最多 6 位，每位下方展示其分类首页的第一部作品。成功的作品预览仅缓存图集 ID、标题和封面地址，可跨重启复用 6 小时；刷新仍会重新读取作者名单。点作品卡打开详情，或点「查看更多」进入对应作者的图集页；刚请求过的作者首页可直接复用。个别作者的预览加载失败时，仍可通过「查看更多」重试；点发现页的刷新按钮重新读取[源站目录](https://cosplaytele.com/best-cosplayer/)。从 1.3.0 或更早版本更新后，若旧作者目录仍在报错或入口消失，请完全退出并重新打开应用，再到发现页设置中重新启用「CosplayTele · 作者目录」；无需清除应用数据。
-5. 在 **Top Cosplay** 下查看 24 小时、3 天或 7 天榜。**Video Cosplay** 列出归入视频分类的帖子；源仍只读取图集图片，视频可用详情中的原网页链接查看。
+2. 打开 **漫画源 → 添加来源 → 选择文件**，选择 [cosplaytele.js](cosplaytele.js) 或 [v2ph.js](v2ph.js)。确认预览中的源名称后，点击 **安装漫画源**。两个源可以独立安装。
 
-本地试用直接安装 JS，不用先导入 [index.json](index.json)。本地索引里的 `fileName` 是相对路径，上传后才有可下载的基准地址。详见 [Venera-Next 仓库指南](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/user/source_repositories.zh.md)。
+本地试用不用先导入 [index.json](index.json)。索引中的脚本路径相对索引地址解析，发布后可按 [Venera-Next 仓库指南](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/user/source_repositories.zh.md) 添加仓库。
+
+## CosplayTele
+
+1. 在「发现」打开最新与近七日热门，或用搜索入口选择 `CosplayTele`。打开图集即可阅读。点详情「信息」里的分类或标签名称，可在应用内打开对应作品列表；最新、搜索、分类、标签和作者作品列表从源站分页栏读取总页数；有末页数字时，第一页就能显示完整总数。热门排行接口没有总数，只会在确认有下一条作品时开放下一页。详情下方还会显示源站提供的 **Recommend For You**（相关推荐）。
+2. 在分类页打开 **Best Cosplayer**，可按短名切换源站目录前 30 位作者（选项超过 8 个时，Venera-Next 会用下拉框显示）；退出后重新进入可更新这组选项。完整名单在 **发现 → CosplayTele · 作者目录**，滚动时每批并行加载最多 6 位，每位下方展示其分类首页的第一部作品。成功的作品预览仅缓存图集 ID、标题和封面地址，可跨重启复用 6 小时；刷新仍会重新读取作者名单。点作品卡打开详情，或点「查看更多」进入对应作者的图集页；刚请求过的作者首页可直接复用。个别作者的预览加载失败时，仍可通过「查看更多」重试；点发现页的刷新按钮重新读取[源站目录](https://cosplaytele.com/best-cosplayer/)。从 1.3.0 或更早版本更新后，若旧作者目录仍在报错或入口消失，请完全退出并重新打开应用，再到发现页设置中重新启用「CosplayTele · 作者目录」；无需清除应用数据。
+3. 在 **Top Cosplay** 下查看 24 小时、3 天或 7 天榜。**Video Cosplay** 列出归入视频分类的帖子；源仍只读取图集图片，视频可用详情中的原网页链接查看。
+
+## V2PH
+
+- 在「发现」选择 **V2PH · 最新** 或 **V2PH · 热门**；后者对应源站「精选」，不是按时间统计的排行榜。在「分类」按题材或地区浏览。
+- 搜索有关键词时使用站内搜索；留空时按分类或地区浏览，两项同时选中时分类优先。点详情里的模特、发行方或标签，可以进入对应作品列表。详情若有源站推荐卡片，也会显示在应用内。
+- 图集以单册显示，阅读时按源站页序加载图片。访客遇到登录限制时，可从漫画源的账号入口使用「网页登录」，在打开的 V2PH 页面手动登录。会员内容和访问限额仍由源站控制。
+- 代理在客户端或系统中配置，脚本不包含代理地址。遇到 Cloudflare 验证时，使用客户端提供的验证入口；普通 403 不会显示成空列表。
 
 ## 验证情况
 
@@ -21,8 +36,13 @@ npm ci
 npm test
 ```
 
-离线测试使用合成页面和 JSON，覆盖索引、分页、搜索筛选、作者目录、排行、详情推荐、图片顺序、请求头和错误。另用源站的 HTML 和 JSON 验证了最新翻页、搜索、详情推荐、图片列表和新增分类入口；尚未在 Venera-Next 客户端完成界面验收。若客户端请求失败，可在「设置 → 调试 → 打开日志」核对具体 HTTP 状态或网络错误。
+离线测试使用合成页面和 JSON，覆盖索引、分页、搜索筛选、作者入口、详情推荐、图片顺序、请求头和错误。
+
+- **CosplayTele**：另用源站的 HTML 和 JSON 验证了最新翻页、搜索、详情推荐、图片列表和分类入口；未完成客户端界面验收。
+- **V2PH**：按上游 V2PH 扩展移植；已在 Venera-Next v1.18.5 随附的 QuickJS 中验证脚本实例化和基础接口。当前测试网络直接访问超时，经代理访问首页、精选和搜索均返回 Cloudflare HTTP 403 验证页；真实列表、网页登录和图集阅读尚未在客户端完成验收。
+
+若客户端请求失败，可在「设置 → 调试 → 打开日志」核对具体 HTTP 状态或网络错误。
 
 ## 来源与许可
 
-基于 [Keiyoushi CosplayTele 上游源码](https://github.com/keiyoushi/extensions-source/tree/92906c0382547f30a03b3176f2f2429be6b54dce/src/all/cosplaytele) 改编：将 Kotlin 列表、详情和图片解析移植到 [Venera-Next 漫画源 API](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/api/comic_source.zh.md)。本仓库使用 [Apache License 2.0](LICENSE)。非 Keiyoushi 或 Venera-Next 官方仓库。
+根据 Keiyoushi 的 [CosplayTele](https://github.com/keiyoushi/extensions-source/tree/92906c0382547f30a03b3176f2f2429be6b54dce/src/all/cosplaytele) 和 [V2PH](https://github.com/keiyoushi/extensions-source/tree/92906c0382547f30a03b3176f2f2429be6b54dce/src/all/v2ph) 上游实现，将 Kotlin 列表、详情和图片解析移植到 [Venera-Next 漫画源 API](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/api/comic_source.zh.md)。本仓库使用 [Apache License 2.0](LICENSE)。非 Keiyoushi 或 Venera-Next 官方仓库。

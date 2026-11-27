@@ -5,5 +5,12 @@
     "version": "1.4.1",
     "fileName": "cosplaytele.js",
     "description": "Cosplay 图库。支持最新、分时排行、关键词搜索、分类和详情推荐。"
+  },
+  {
+    "name": "V2PH",
+    "key": "v2ph",
+    "version": "1.0.0",
+    "fileName": "v2ph.js",
+    "description": "微图坊。支持最新、热门精选、关键词搜索、分类和地区筛选、模特图集及多页图片阅读。"
   }
 ]

@@ -2,54 +2,11 @@ const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { test } = require('node:test');
-const vm = require('node:vm');
-const { load } = require('cheerio');
+const { root, plain, createSource: createHost } = require('./source-host.cjs');
 
-const root = join(__dirname, '..');
 const base = 'https://cosplaytele.com';
-const script = readFileSync(join(root, 'cosplaytele.js'), 'utf8');
-const className = script.match(/^\s*class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+extends\s+ComicSource\b/m)[1];
 const id = '%2Fdemo-gallery%2F';
-
-function createSource(respond = () => assert.fail('Unexpected request'), storage = new Map()) {
-    const requests = [];
-    const documents = new Set();
-    const logs = [];
-    class HtmlDocument {
-        constructor(html) {
-            const $ = load(html);
-            documents.add(this);
-            const check = () => assert.ok(documents.has(this), 'Access after document disposal');
-            const wrap = selection => selection.length ? {
-                get text() { check(); return selection.text(); },
-                get attributes() { check(); return selection.attr(); },
-                querySelector: selector => { check(); return wrap(selection.find(selector).first()); },
-                querySelectorAll: selector => { check(); return selection.find(selector).toArray().map(node => wrap($(node))); },
-            } : null;
-            this.querySelector = selector => { check(); return wrap($(selector).first()); };
-            this.querySelectorAll = selector => { check(); return $(selector).toArray().map(node => wrap($(node))); };
-        }
-        dispose() { assert.ok(documents.delete(this)); }
-    }
-    const source = vm.runInNewContext(`${script}\nnew ${className}()`, {
-        ComicSource: class {
-            loadData(key) { return storage.get(key); }
-            saveData(key, value) { storage.set(key, plain(value)); }
-        },
-        Comic: class { constructor(fields) { Object.assign(this, fields); } },
-        ComicDetails: class { constructor(fields) { Object.assign(this, fields); } },
-        HtmlDocument,
-        log: (...entry) => logs.push(entry),
-        Network: { get: async (url, headers) => {
-            requests.push({ url, headers });
-            const body = await respond(new URL(url));
-            return typeof body === 'string' ? { status: 200, body } : body;
-        } },
-    }, { filename: 'cosplaytele.js' });
-    return { source, requests, documents, logs };
-}
-
-const plain = value => JSON.parse(JSON.stringify(value));
+const createSource = (...args) => createHost('cosplaytele.js', ...args);
 const card = (path, title, image = '') => `<div class="box"><h5><a href="${path}">${title}</a></h5>${image}</div>`;
 const list = (body = '', hasNext = false) => `<main id="main">${body}${hasNext ? '<a class="next page-number" href="/page/2/">Next</a>' : ''}</main>`;
 const gallery = `<meta property="og:image" content="//images.example.invalid/cover.jpg">
@@ -78,18 +35,18 @@ function explore(source, title) {
 }
 
 test('index is a JSON array matching the source and resolves its script relative to the CDN URL', () => {
-    const { source, requests } = createSource();
+    const { source, requests, script } = createSource();
     const repo = JSON.parse(readFileSync(join(root, 'index.json'), 'utf8'));
-    assert.equal(repo.length, 1);
-    assert.deepEqual([repo[0].name, repo[0].key, repo[0].version], [source.name, source.key, source.version]);
+    const entry = repo.find(item => item.key === source.key);
+    assert.deepEqual([entry.name, entry.key, entry.version], [source.name, source.key, source.version]);
     assert.match(source.key, /^[a-zA-Z_][a-zA-Z0-9_]*$/);
     assert.match(source.version, /^\d+\.\d+\.\d+$/);
     assert.equal(source.minAppVersion, '1.18.5');
     assert.equal(source.url, '');
-    assert.equal(repo[0].fileName, 'cosplaytele.js');
-    assert.equal(new URL(repo[0].fileName, 'https://cdn.jsdelivr.net/gh/example/sources@main/index.json').href,
+    assert.equal(entry.fileName, 'cosplaytele.js');
+    assert.equal(new URL(entry.fileName, 'https://cdn.jsdelivr.net/gh/example/sources@main/index.json').href,
         'https://cdn.jsdelivr.net/gh/example/sources@main/cosplaytele.js');
-    assert.equal(readFileSync(join(root, repo[0].fileName), 'utf8'), script);
+    assert.equal(readFileSync(join(root, entry.fileName), 'utf8'), script);
     assert.equal(requests.length, 0);
 });
 
