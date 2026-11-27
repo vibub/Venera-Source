@@ -4,7 +4,7 @@
 class CosplayTeleSource extends ComicSource {
     name = "CosplayTele";
     key = "cosplaytele";
-    version = "1.3.0";
+    version = "1.3.1";
     minAppVersion = "1.18.5";
     url = "";
 
@@ -218,7 +218,9 @@ class CosplayTeleSource extends ComicSource {
     explore = [
         { title: "CosplayTele · Latest", type: "multiPageComicList", load: page => this.loadList("/", page) },
         { title: "CosplayTele · Popular", type: "multiPageComicList", load: page => this.loadPopular(page) },
-        { title: "CosplayTele · Creator Directory", type: "mixed", load: page => this.loadCreatorDirectory(page) },
+        // Venera-Next keys PageStorage by this title. A reused multiPartPage key can expose
+        // its saved state map to the mixed page's scroll offset restoration (which expects a double).
+        { title: "CosplayTele · Creator Previews", type: "mixed", load: page => this.loadCreatorDirectory(page) },
     ];
 
     search = {
@@ -313,7 +315,7 @@ class CosplayTeleSource extends ComicSource {
         zh_CN: {
             "CosplayTele · Latest": "CosplayTele · 最新",
             "CosplayTele · Popular": "CosplayTele · 热门",
-            "CosplayTele · Creator Directory": "CosplayTele · 作者目录",
+            "CosplayTele · Creator Previews": "CosplayTele · 作者目录",
             "Featured Cosplayers": "精选作者",
             "CosplayTele Categories": "CosplayTele 分类",
             "Best Cosplayer": "人气 Cosplayer",
@@ -326,7 +328,7 @@ class CosplayTeleSource extends ComicSource {
         zh_TW: {
             "CosplayTele · Latest": "CosplayTele · 最新",
             "CosplayTele · Popular": "CosplayTele · 熱門",
-            "CosplayTele · Creator Directory": "CosplayTele · 作者目錄",
+            "CosplayTele · Creator Previews": "CosplayTele · 作者目錄",
             "Featured Cosplayers": "精選作者",
             "CosplayTele Categories": "CosplayTele 分類",
             "Best Cosplayer": "人氣 Cosplayer",

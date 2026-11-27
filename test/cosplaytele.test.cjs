@@ -170,6 +170,16 @@ test('Best Cosplayer fetches short-name shortcuts once and pages the chosen crea
     assert.equal(documents.size, 0);
 });
 
+test('the mixed author tab uses a fresh PageStorage key while preserving its Chinese label', () => {
+    const { source } = createSource();
+    const legacyTitle = 'CosplayTele · Creator Directory';
+    const directory = source.explore.find(entry => entry.type === 'mixed');
+    assert.equal(directory.title, 'CosplayTele · Creator Previews');
+    assert.ok(!source.explore.some(entry => entry.title === legacyTitle));
+    assert.equal(source.translation.zh_CN[directory.title], 'CosplayTele · 作者目录');
+    assert.equal(source.translation.zh_TW[directory.title], 'CosplayTele · 作者目錄');
+});
+
 test('directory pages list one real gallery per creator and refresh independently of the first 30 shortcuts', async () => {
     let changed = false;
     const { source, requests, documents } = createSource(url => {
@@ -184,8 +194,7 @@ test('directory pages list one real gallery per creator and refresh independentl
         assert.match(url.pathname, /^\/category\/\w[\w-]*\/(?:page\/2\/)?$/);
         return list(card('/demo-gallery/', 'Demo', '<img src="/demo.jpg">') + card('/another-gallery/', 'Another'));
     });
-    const directory = source.explore.find(entry => entry.title.endsWith('Creator Directory'));
-    assert.equal(directory.type, 'mixed');
+    const directory = source.explore.find(entry => entry.type === 'mixed');
     const [initial] = await source.categoryComics.optionLoader('Best Cosplayer', 'best');
     assert.equal(initial.options.length, 30);
     assert.equal(initial.options[29], 'sample%2D30-Sample 30');
