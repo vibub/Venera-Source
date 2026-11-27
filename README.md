@@ -1,13 +1,14 @@
 # CosplayTele for Venera-Next
 
-把 [Keiyoushi 的 CosplayTele 扩展](https://keiyoushi.github.io/extensions/#7395748658970167454) 移植到 Venera-Next。支持最新、热门排行、关键词搜索、分类筛选、详情推荐和单册图库阅读。源站含成人内容；仓库只分发代码，不存放图片，也不需要额外部署服务器。
+把 [Keiyoushi 的 CosplayTele 扩展](https://keiyoushi.github.io/extensions/#7395748658970167454) 移植到 Venera-Next。支持最新、热门排行、关键词搜索、分类筛选、详情推荐和单册图库阅读。仓库只分发代码，不存放图片，也不需要额外部署服务器。
 
 ## 从本地文件安装
 
 1. 使用 [Venera-Next v1.18.5](https://github.com/CyrilPeng/Venera-Next/releases/tag/v1.18.5) 或更新版。首版声明最低版本为 `1.18.5`，原版 Venera 与更早版本未验证。
 2. 打开 **漫画源 → 添加来源 → 选择文件**，选择 [cosplaytele.js](cosplaytele.js)。预览应显示 `CosplayTele`，点击 **安装漫画源**。
 3. 在「发现」打开最新与近七日热门，或用搜索入口选择 `CosplayTele`。打开图集即可阅读；详情下方会显示源站提供的 **Recommend For You**（相关推荐）。
-4. 在分类页打开 **Best Cosplayer**，用筛选器选择作者；在 **Top Cosplay** 下查看 24 小时、3 天或 7 天榜。**Video Cosplay** 列出归入视频分类的帖子；源仍只读取图集图片，视频可用详情中的原网页链接查看。
+4. 在分类页打开 **Best Cosplayer**，可用短名按钮切换源站目录前 8 位作者；退出后重新进入可更新这组选项。完整名单在 **发现 → CosplayTele · 作者目录**，逐行浏览，点「查看更多」进入对应作者的图集页；点发现页的刷新按钮重新读取[源站目录](https://cosplaytele.com/best-cosplayer/)。如果「发现」没显示新入口，可在发现页的「添加」中启用它。
+5. 在 **Top Cosplay** 下查看 24 小时、3 天或 7 天榜。**Video Cosplay** 列出归入视频分类的帖子；源仍只读取图集图片，视频可用详情中的原网页链接查看。
 
 本地试用直接安装 JS，不用先导入 [index.json](index.json)。本地索引里的 `fileName` 是相对路径，上传后才有可下载的基准地址。详见 [Venera-Next 仓库指南](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/user/source_repositories.zh.md)。
 
