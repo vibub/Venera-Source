@@ -4,7 +4,7 @@
 class CosplayTeleSource extends ComicSource {
     name = "CosplayTele";
     key = "cosplaytele";
-    version = "1.2.0";
+    version = "1.2.1";
     minAppVersion = "1.18.5";
     url = "";
 
@@ -130,8 +130,8 @@ class CosplayTeleSource extends ComicSource {
 
     async loadCreatorOptions() {
         const creators = await this.loadCreators();
-        // Venera-Next uses chips through eight options and splits each key at its first hyphen.
-        return [{ label: "Featured Cosplayers", options: creators.slice(0, 8).map(({ slug, shortName }) =>
+        // Venera-Next splits each option at its first hyphen.
+        return [{ label: "Featured Cosplayers", options: creators.slice(0, 30).map(({ slug, shortName }) =>
             `${encodeURIComponent(slug).replace(/-/g, "%2D")}-${shortName}`) }];
     }
 

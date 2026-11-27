@@ -168,7 +168,7 @@ test('Best Cosplayer fetches short-name shortcuts once and pages the chosen crea
     assert.equal(documents.size, 0);
 });
 
-test('creator directory and chip shortcuts reflect source changes without a script update', async () => {
+test('Best Cosplayer shows the first 30 authors and the full directory stays up to date', async () => {
     let changed = false;
     const { source, requests, documents } = createSource(url => {
         if (url.pathname === '/category/new-creator/page/2/') return list(card('/demo-gallery/', 'Demo'));
@@ -177,20 +177,22 @@ test('creator directory and chip shortcuts reflect source changes without a scri
             ? [['new-creator', '长名字作者甲乙丙丁戊己庚辛 （New handle）']]
             : [['first-creator', 'First Creator (first.handle)']];
         return `<main><div class="row-small"><div class="text">${names.concat(
-            Array.from({ length: 9 }, (_, i) => [`sample-${i}`, `Sample ${i}`]),
+            Array.from({ length: 34 }, (_, i) => [`sample-${i + 2}`, `Sample ${i + 2}`]),
         ).map(([slug, name]) => `<a href="/category/${slug}/">${name}</a>`).join('')}</div></div></main>`;
     });
     const directory = source.explore.find(entry => entry.title.endsWith('Creator Directory'));
     assert.equal(directory.type, 'multiPartPage');
     const [initial] = await source.categoryComics.optionLoader('Best Cosplayer', 'best');
-    assert.equal(initial.options.length, 8);
+    assert.equal(initial.options.length, 30);
     assert.equal(initial.options[0], 'first%2Dcreator-First Creator');
+    assert.equal(initial.options[29], 'sample%2D30-Sample 30');
     const before = await directory.load();
-    assert.equal(before.length, 10);
+    assert.equal(before.length, 35);
+    assert.equal(before[30].viewMore.attributes.param, 'creator:sample-31');
     assert.equal(before[0].viewMore.attributes.param, 'creator:first-creator');
     changed = true;
     const after = await directory.load();
-    assert.equal(after.length, 10);
+    assert.equal(after.length, 35);
     assert.equal(after[0].title, '长名字作者甲乙丙丁…');
     assert.equal(after[0].viewMore.attributes.category, '长名字作者甲乙丙丁戊己庚辛 （New handle）');
     assert.ok(after.every(row => row.comics.length === 0 && row.viewMore.page === 'category'));
