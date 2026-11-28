@@ -1,16 +1,21 @@
 # Venera-Next 图库源
 
-本仓库提供 CosplayTele 和 V2PH（微图坊），只分发源脚本和索引，不存放图片，也不需要部署服务器。
+本仓库提供七个 Venera-Next 图库源，只分发源脚本和索引，不存放图片，也不需要部署服务器。部分源含成人内容。
 
 | 漫画源 | 入口与功能 |
 | --- | --- |
 | [CosplayTele](cosplaytele.js) | 最新、分时排行、搜索、分类、作者目录、详情推荐、图库阅读 |
 | [V2PH](v2ph.js) | 最新、热门精选、搜索、分类与地区、模特／发行方／标签跳转、详情推荐（源站有提供时）、分页图库阅读 |
+| [Kiutaku](kiutaku.js) | 最新、热门、关键词搜索、标签图集、详情推荐、按原顺序合并多页图集 |
+| [CosplayRule34](cosplayrule34.js) | 最新、排行、搜索和分类；在详情按模特、角色、作品跳转 |
+| [OSOSEDKI](ososedki.js) | 最新、热门、关键词或模特／角色／作品搜索、详情标签跳转、图集阅读 |
+| [Hentai Cosplay](hentaicosplay.js) | 最新、热门、关键词搜索、标签排行、详情标签跳转、相关推荐和单册图库 |
+| [JJCOS](jjcos.js) | Cosplay 标签归档、关键词搜索、详情标签跳转、单册图集；没有独立的最新或分时榜入口 |
 
 ## 从本地文件安装
 
 1. 使用 [Venera-Next v1.18.5](https://github.com/CyrilPeng/Venera-Next/releases/tag/v1.18.5) 或更新版。首版声明最低版本为 `1.18.5`，原版 Venera 与更早版本未验证。
-2. 打开 **漫画源 → 添加来源 → 选择文件**，选择 [cosplaytele.js](cosplaytele.js) 或 [v2ph.js](v2ph.js)。确认预览中的源名称后，点击 **安装漫画源**。两个源可以独立安装。
+2. 打开 **漫画源 → 添加来源 → 选择文件**，选择上表对应的脚本。确认预览中的源名称后，点击 **安装漫画源**。各源可独立安装、并存。
 
 本地试用不用先导入 [index.json](index.json)。索引中的脚本路径相对索引地址解析，发布后可按 [Venera-Next 仓库指南](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/user/source_repositories.zh.md) 添加仓库。
 
@@ -41,8 +46,13 @@ npm test
 - **CosplayTele**：另用源站的 HTML 和 JSON 验证了最新翻页、搜索、详情推荐、图片列表和分类入口；未完成客户端界面验收。
 - **V2PH**：按上游 V2PH 扩展移植；已在 Venera-Next v1.18.5 随附的 QuickJS 中验证脚本实例化和基础接口。当前测试网络直接访问超时，经代理访问首页、精选和搜索均返回 Cloudflare HTTP 403 验证页；真实列表、网页登录和图集阅读尚未在客户端完成验收。
 
+- **Kiutaku、OSOSEDKI、JJCOS**：用实际 HTML／JSON 验证了列表、翻页、搜索、详情、标签跳转和图片地址解析。JJCOS 首次关键词搜索会加载源站 JSON 索引，短时间内翻页和改关键词会复用它。
+- **Hentai Cosplay**：用实际网页验证了最新、热门、翻页、搜索、热门标签及其归档、详情、相关推荐和图片地址解析；抽查的详情没有作品标签，详情标签跳转由合成测试覆盖。
+- **CosplayRule34**：开发网络收到了 Cloudflare 返回的 HTTP 403；列表、详情、照片接口和排序按上游实现并用合成响应测试。
+- 五个新源都在 Venera-Next v1.18.5 随附的 QuickJS 中完成了加载检查。没有下载实图，未完成客户端界面验收。
+
 若客户端请求失败，可在「设置 → 调试 → 打开日志」核对具体 HTTP 状态或网络错误。
 
 ## 来源与许可
 
-根据 Keiyoushi 的 [CosplayTele](https://github.com/keiyoushi/extensions-source/tree/92906c0382547f30a03b3176f2f2429be6b54dce/src/all/cosplaytele) 和 [V2PH](https://github.com/keiyoushi/extensions-source/tree/92906c0382547f30a03b3176f2f2429be6b54dce/src/all/v2ph) 上游实现，将 Kotlin 列表、详情和图片解析移植到 [Venera-Next 漫画源 API](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/api/comic_source.zh.md)。本仓库使用 [Apache License 2.0](LICENSE)。非 Keiyoushi 或 Venera-Next 官方仓库。
+由 [Keiyoushi 的 Kotlin 扩展](https://github.com/keiyoushi/extensions-source)移植至 [Venera-Next 漫画源 API](https://github.com/CyrilPeng/Venera-Next/blob/v1.18.5/doc/api/comic_source.zh.md)；各脚本头部标明对应的上游路径与版本。本仓库使用 [Apache License 2.0](LICENSE)。非 Keiyoushi 或 Venera-Next 官方仓库。

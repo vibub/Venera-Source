@@ -32,6 +32,12 @@ function createSource(filename, respond = () => assert.fail('Unexpected request'
         }
         dispose() { assert.ok(documents.delete(this)); }
     }
+    async function request(method, url, headers, data, extra) {
+        const entry = method === 'GET' && extra === undefined ? { url, headers } : { method, url, headers, data, extra };
+        requests.push(entry);
+        const body = await respond(new URL(url), entry);
+        return typeof body === 'string' ? { status: 200, body } : body;
+    }
     const source = vm.runInNewContext(`${script}\nnew ${className}()`, {
         ComicSource: class {
             loadData(key) { return storage.get(key); }
@@ -44,11 +50,9 @@ function createSource(filename, respond = () => assert.fail('Unexpected request'
         HtmlDocument,
         log: (...entry) => logs.push(entry),
         Network: {
-            get: async (url, headers) => {
-                requests.push({ url, headers });
-                const body = await respond(new URL(url));
-                return typeof body === 'string' ? { status: 200, body } : body;
-            },
+            get: (url, headers, extra) => request('GET', url, headers, undefined, extra),
+            post: (url, headers, data, extra) => request('POST', url, headers, data, extra),
+            sendRequest: request,
             deleteCookies: url => deletedCookies.push(url),
         },
     }, { filename });

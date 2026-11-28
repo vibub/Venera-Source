@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node test/cosplaytele.test.cjs && node test/v2ph.test.cjs"
+    "test": "node test/repository.test.cjs && node test/cosplaytele.test.cjs && node test/v2ph.test.cjs && node test/kiutaku.test.cjs && node test/cosplayrule34.test.cjs && node test/ososedki.test.cjs && node test/hentaicosplay.test.cjs && node test/jjcos.test.cjs"
   },
   "engines": {
     "node": ">=22"

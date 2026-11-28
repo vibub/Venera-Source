@@ -21,10 +21,9 @@ const filenames = (start, end) => Array.from({ length: end - start + 1 }, (_, in
 const latest = source => source.explore[0].load;
 const album = source => source.comic.loadEp(id, null);
 
-test('repository exposes both independently installable sources without requesting the network', () => {
+test('V2PH is independently installable without requesting the network', () => {
     const { source, script, requests } = createSource();
     const repo = JSON.parse(readFileSync(join(root, 'index.json'), 'utf8'));
-    assert.deepEqual(repo.map(entry => entry.key).sort(), ['cosplaytele', 'v2ph']);
     const entry = repo.find(entry => entry.key === source.key);
     assert.deepEqual([entry.name, entry.version, entry.fileName], [source.name, source.version, 'v2ph.js']);
     assert.equal(readFileSync(join(root, entry.fileName), 'utf8'), script);

@@ -12,5 +12,40 @@
     "version": "1.0.0",
     "fileName": "v2ph.js",
     "description": "微图坊。支持最新、热门精选、关键词搜索、分类和地区筛选、模特图集及多页图片阅读。"
+  },
+  {
+    "name": "Kiutaku",
+    "key": "kiutaku",
+    "version": "1.0.0",
+    "fileName": "kiutaku.js",
+    "description": "Cosplay 图集。支持最新、热门、搜索、标签、相关推荐和多页图集阅读。"
+  },
+  {
+    "name": "CosplayRule34",
+    "key": "cosplayrule34",
+    "version": "1.0.0",
+    "fileName": "cosplayrule34.js",
+    "description": "Cosplay 图集。支持最新、排行、搜索、分类和模特／角色／作品图集。"
+  },
+  {
+    "name": "OSOSEDKI",
+    "key": "ososedki",
+    "version": "1.0.0",
+    "fileName": "ososedki.js",
+    "description": "Cosplay 图集。支持最新、热门、搜索和模特／角色／作品标签。"
+  },
+  {
+    "name": "Hentai Cosplay",
+    "key": "hentaicosplay",
+    "version": "1.0.0",
+    "fileName": "hentaicosplay.js",
+    "description": "成人向 Cosplay 图集。支持浏览、搜索、分类标签和图集阅读。"
+  },
+  {
+    "name": "JJCOS",
+    "key": "jjcos",
+    "version": "1.0.0",
+    "fileName": "jjcos.js",
+    "description": "Cosplay 图集。支持浏览、搜索、标签和单册图集阅读。"
   }
 ]
